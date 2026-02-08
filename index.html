@@ -82,8 +82,17 @@
   <script>
     // Configuration - tweak these to adjust the effect
     const CONFIG = {
-      // Emoji pool
-      emojis: ['✨', '🌟', '💫', '⭐', '🔥', '💥', '🎉', '🎊', '💖', '💜', '💙', '🌈'],
+      // Image pool (using Twemoji CDN - Twitter's emoji as crisp SVGs)
+      images: [
+        'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/2728.svg',  // ✨ sparkles
+        'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/1f525.svg', // 🔥 fire
+        'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/2b50.svg',  // ⭐ star
+        'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/1f4ab.svg', // 💫 dizzy
+        'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/1f389.svg', // 🎉 party popper
+        'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/1f496.svg', // 💖 sparkling heart
+        'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/1f308.svg', // 🌈 rainbow
+        'https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/svg/1f31f.svg', // 🌟 glowing star
+      ],
 
       // Physics
       gravity: 0.4,              // Downward acceleration per frame
@@ -123,12 +132,13 @@
 
         this.opacity = 1;
         this.size = CONFIG.sizeMin + Math.random() * (CONFIG.sizeMax - CONFIG.sizeMin);
-        this.emoji = CONFIG.emojis[Math.floor(Math.random() * CONFIG.emojis.length)];
+        const imageSrc = CONFIG.images[Math.floor(Math.random() * CONFIG.images.length)];
 
-        this.element = document.createElement('span');
+        this.element = document.createElement('img');
         this.element.className = 'emoji-particle';
-        this.element.textContent = this.emoji;
-        this.element.style.fontSize = `${this.size}px`;
+        this.element.src = imageSrc;
+        this.element.style.width = `${this.size}px`;
+        this.element.style.height = `${this.size}px`;
         document.body.appendChild(this.element);
 
         this.alive = true;
