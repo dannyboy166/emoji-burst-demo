@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emoji Burst Input</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+    }
+
+    .input-container {
+      position: relative;
+      width: 400px;
+    }
+
+    .emoji-input {
+      width: 100%;
+      padding: 18px 24px;
+      font-size: 18px;
+      border: none;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow:
+        0 4px 24px rgba(0, 0, 0, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: box-shadow 0.2s ease;
+    }
+
+    .emoji-input:focus {
+      box-shadow:
+        0 4px 32px rgba(100, 100, 255, 0.3),
+        0 0 0 2px rgba(100, 100, 255, 0.5);
+    }
+
+    .emoji-input::placeholder {
+      color: #999;
+    }
+
+    /* Emoji particles are positioned fixed to the viewport */
+    .emoji-particle {
+      position: fixed;
+      pointer-events: none;
+      user-select: none;
+      z-index: 1000;
+      font-size: 24px;
+      will-change: transform, opacity;
+    }
+
+    .hint {
+      text-align: center;
+      margin-top: 20px;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="input-container">
+    <input
+      type="text"
+      class="emoji-input"
+      placeholder="Start typing..."
+      autocomplete="off"
+    >
+    <p class="hint">Type something to see the magic</p>
+  </div>
+
+  <script>
+    // Configuration - tweak these to adjust the effect
+    const CONFIG = {
+      // Emoji pool
+      emojis: ['✨', '🌟', '💫', '⭐', '🔥', '💥', '🎉', '🎊', '💖', '💜', '💙', '🌈'],
+
+      // Physics
+      gravity: 0.4,              // Downward acceleration per frame
+      initialSpeedMin: 8,        // Minimum launch speed
+      initialSpeedMax: 14,       // Maximum launch speed
+      angleMin: -120,            // Launch angle range (degrees from right)
+      angleMax: -60,             // -90 is straight up, -60 to -120 gives spread
+      rotationSpeed: 8,          // Max rotation speed (degrees per frame)
+      rotationDecel: 0.98,       // Rotation slowdown per frame
+
+      // Appearance
+      fadeStart: 0.7,            // Start fading at this opacity after peak
+      fadeSpeed: 0.015,          // How fast to fade out
+      sizeMin: 32,               // Min font size
+      sizeMax: 48,               // Max font size
+
+      // Spawning
+      particlesPerKey: 1,        // Emojis per keystroke
+      spawnSpread: 30,           // Horizontal spread from spawn point (px)
+    };
+
+    class EmojiParticle {
+      constructor(x, y) {
+        this.x = x + (Math.random() - 0.5) * CONFIG.spawnSpread;
+        this.y = y;
+
+        // Random launch angle and speed
+        const angle = CONFIG.angleMin + Math.random() * (CONFIG.angleMax - CONFIG.angleMin);
+        const speed = CONFIG.initialSpeedMin + Math.random() * (CONFIG.initialSpeedMax - CONFIG.initialSpeedMin);
+        const radians = angle * Math.PI / 180;
+
+        this.vx = Math.cos(radians) * speed;
+        this.vy = Math.sin(radians) * speed;
+
+        this.rotation = Math.random() * 360;
+        this.rotationVel = (Math.random() - 0.5) * CONFIG.rotationSpeed * 2;
+
+        this.opacity = 1;
+        this.size = CONFIG.sizeMin + Math.random() * (CONFIG.sizeMax - CONFIG.sizeMin);
+        this.emoji = CONFIG.emojis[Math.floor(Math.random() * CONFIG.emojis.length)];
+
+        this.element = document.createElement('span');
+        this.element.className = 'emoji-particle';
+        this.element.textContent = this.emoji;
+        this.element.style.fontSize = `${this.size}px`;
+        document.body.appendChild(this.element);
+
+        this.alive = true;
+        this.hasPassedPeak = false;
+      }
+
+      update() {
+        // Apply gravity
+        this.vy += CONFIG.gravity;
+
+        // Update position
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Update rotation with deceleration
+        this.rotation += this.rotationVel;
+        this.rotationVel *= CONFIG.rotationDecel;
+
+        // Start fading once past the peak (when vy becomes positive = falling)
+        if (this.vy > 0) {
+          this.hasPassedPeak = true;
+        }
+
+        if (this.hasPassedPeak) {
+          this.opacity -= CONFIG.fadeSpeed;
+        }
+
+        // Check if particle should be removed
+        if (this.opacity <= 0 || this.y > window.innerHeight + 50) {
+          this.alive = false;
+          this.element.remove();
+          return;
+        }
+
+        // Apply transforms
+        this.element.style.left = `${this.x}px`;
+        this.element.style.top = `${this.y}px`;
+        this.element.style.opacity = this.opacity;
+        this.element.style.transform = `translate(-50%, -50%) rotate(${this.rotation}deg)`;
+      }
+    }
+
+    class EmojiBurst {
+      constructor(inputElement) {
+        this.input = inputElement;
+        this.particles = [];
+        this.isAnimating = false;
+
+        // Create hidden mirror element to measure caret position
+        this.mirror = document.createElement('span');
+        this.mirror.style.cssText = `
+          position: absolute;
+          visibility: hidden;
+          white-space: pre;
+          font-family: ${getComputedStyle(this.input).fontFamily};
+          font-size: ${getComputedStyle(this.input).fontSize};
+          padding-left: ${getComputedStyle(this.input).paddingLeft};
+        `;
+        document.body.appendChild(this.mirror);
+
+        this.input.addEventListener('keydown', (e) => this.handleKeydown(e));
+        this.animate = this.animate.bind(this);
+      }
+
+      getCaretX() {
+        const caretPos = this.input.selectionStart;
+        const textBeforeCaret = this.input.value.substring(0, caretPos);
+        this.mirror.textContent = textBeforeCaret;
+        return this.mirror.offsetWidth;
+      }
+
+      handleKeydown(e) {
+        // Only trigger on actual character keys
+        if (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Enter') {
+          this.burst();
+        }
+      }
+
+      burst() {
+        const rect = this.input.getBoundingClientRect();
+        const caretOffset = this.getCaretX();
+
+        // Spawn point: at caret position, vertically centered
+        const spawnX = rect.left + caretOffset + 24; // +24 for padding
+        const spawnY = rect.top + rect.height / 2;
+
+        // Create particles
+        for (let i = 0; i < CONFIG.particlesPerKey; i++) {
+          this.particles.push(new EmojiParticle(spawnX, spawnY));
+        }
+
+        // Start animation loop if not running
+        if (!this.isAnimating) {
+          this.isAnimating = true;
+          requestAnimationFrame(this.animate);
+        }
+      }
+
+      animate() {
+        // Update all particles
+        this.particles.forEach(p => p.update());
+
+        // Remove dead particles
+        this.particles = this.particles.filter(p => p.alive);
+
+        // Continue animation if particles exist
+        if (this.particles.length > 0) {
+          requestAnimationFrame(this.animate);
+        } else {
+          this.isAnimating = false;
+        }
+      }
+    }
+
+    // Initialize
+    const input = document.querySelector('.emoji-input');
+    new EmojiBurst(input);
+  </script>
+</body>
+</html>
